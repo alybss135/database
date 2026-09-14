@@ -125,20 +125,6 @@ void* leaf_node_value(void* node, uint32_t cell_num) {
 	return leaf_node_cell(node, cell_num) + LEAF_NODE_KEY_SIZE;
 }
 
-void initialize_leaf_node(void* node) { *leaf_node_num_cells(node) = 0; }
-
-void serialize_row(Row* source, void* destination) {
-	memcpy(destination + ID_OFFSET, &(source->id), ID_SIZE);
-	strncpy(destination + USERNAME_OFFSET, source->username, USERNAME_SIZE);
-	strncpy(destination + EMAIL_OFFSET, source->email, EMAIL_SIZE);
-}
-
-void deserialize_row (void* source, Row* destination) {
-	memcpy(&(destination->id), source + ID_OFFSET, ID_SIZE);
-	memcpy(&(destination->username), source + USERNAME_OFFSET, USERNAME_SIZE);
-	memcpy(&(destination->email), source + EMAIL_OFFSET, EMAIL_SIZE);
-}
-
 void* get_page(Pager* pager, uint32_t page_num) {
 	if (page_num > TABLE_MAX_PAGES) {
 		printf("Tried to fetch page number out of bounds. %d > %d\n", page_num, TABLE_MAX_PAGES);
@@ -190,37 +176,19 @@ void print_leaf_node(void* node) {
 	}
 }
 
-Pager* pager_open(const char* filename) {
-	int fd = open(filename,
-			O_RDWR |	// Read/Write mode
-			    O_CREAT,	// Create file if it does not exist
-			S_IWUSR |	// User write permission
-			    S_IRUSR	// User read persmission
-			);
-
-	if (fd == -1) {
-		printf("Unable to open file\n");
-		exit(EXIT_FAILURE);
-	}
-
-	off_t file_length = lseek(fd, 0, SEEK_END);
-
-	Pager* pager = malloc(sizeof(Pager));
-	pager->file_descriptor = fd;
-	pager->file_length = file_length;
-	pager->num_pages = (file_length / PAGE_SIZE);
-
-	if (file_length % PAGE_SIZE != 0) {
-		printf("Db file is not a whole number of pages. Corrupt file.\n");
-		exit(EXIT_FAILURE);
-	}
-
-	for (uint32_t i = 0; i < TABLE_MAX_PAGES; i++) {
-		pager->pages[i] = NULL;
-	}
-
-	return pager;
+void serialize_row(Row* source, void* destination) {
+	memcpy(destination + ID_OFFSET, &(source->id), ID_SIZE);
+	strncpy(destination + USERNAME_OFFSET, source->username, USERNAME_SIZE);
+	strncpy(destination + EMAIL_OFFSET, source->email, EMAIL_SIZE);
 }
+
+void deserialize_row (void* source, Row* destination) {
+	memcpy(&(destination->id), source + ID_OFFSET, ID_SIZE);
+	memcpy(&(destination->username), source + USERNAME_OFFSET, USERNAME_SIZE);
+	memcpy(&(destination->email), source + EMAIL_OFFSET, EMAIL_SIZE);
+}
+
+void initialize_leaf_node(void* node) { *leaf_node_num_cells(node) = 0; }
 
 Cursor* table_start(Table* table) {
 	Cursor* cursor = malloc(sizeof(Cursor));
@@ -263,6 +231,38 @@ void cursor_advance(Cursor* cursor) {
 	}
 }
 
+Pager* pager_open(const char* filename) {
+	int fd = open(filename,
+			O_RDWR |	// Read/Write mode
+			    O_CREAT,	// Create file if it does not exist
+			S_IWUSR |	// User write permission
+			    S_IRUSR	// User read persmission
+			);
+
+	if (fd == -1) {
+		printf("Unable to open file\n");
+		exit(EXIT_FAILURE);
+	}
+
+	off_t file_length = lseek(fd, 0, SEEK_END);
+
+	Pager* pager = malloc(sizeof(Pager));
+	pager->file_descriptor = fd;
+	pager->file_length = file_length;
+	pager->num_pages = (file_length / PAGE_SIZE);
+
+	if (file_length % PAGE_SIZE != 0) {
+		printf("Db file is not a whole number of pages. Corrupt file.\n");
+		exit(EXIT_FAILURE);
+	}
+
+	for (uint32_t i = 0; i < TABLE_MAX_PAGES; i++) {
+		pager->pages[i] = NULL;
+	}
+
+	return pager;
+}
+
 Table* db_open(const char* filename) {
 	Pager* pager = pager_open(filename);
 	
@@ -285,6 +285,26 @@ InputBuffer* new_input_buffer() {
 	input_buffer->input_length = 0;
 
 	return input_buffer;
+}
+
+void print_prompt() { printf("db > "); }
+
+void read_input(InputBuffer* input_buffer) {
+	ssize_t bytes_read = getline(&(input_buffer->buffer), &(input_buffer->buffer_length), stdin);
+
+	if (bytes_read <= 0) {
+		printf("Error reading input\n");
+		exit(EXIT_FAILURE);
+	}
+
+	// Ignore trailing newline
+	input_buffer->input_length = bytes_read - 1;
+	input_buffer->buffer[bytes_read - 1] = 0;
+}
+
+void close_input_buffer(InputBuffer* input_buffer) {
+	free(input_buffer->buffer);
+	free(input_buffer);
 }
 
 void pager_flush(Pager* pager, uint32_t page_numi) {
@@ -418,26 +438,6 @@ void leaf_node_insert(Cursor* cursor, uint32_t key, Row* value) {
 	*(leaf_node_num_cells(node)) += 1;
 	*(leaf_node_key(node, cursor->cell_num)) = key;
 	serialize_row(value, leaf_node_value(node, cursor->cell_num));
-}
-
-void print_prompt() { printf("db > "); }
-
-void read_input(InputBuffer* input_buffer) {
-	ssize_t bytes_read = getline(&(input_buffer->buffer), &(input_buffer->buffer_length), stdin);
-
-	if (bytes_read <= 0) {
-		printf("Error reading input\n");
-		exit(EXIT_FAILURE);
-	}
-
-	// Ignore trailing newline
-	input_buffer->input_length = bytes_read - 1;
-	input_buffer->buffer[bytes_read - 1] = 0;
-}
-
-void close_input_buffer(InputBuffer* input_buffer) {
-	free(input_buffer->buffer);
-	free(input_buffer);
 }
 
 ExecuteResult execute_insert(Statement* statement, Table* table) {

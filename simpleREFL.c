@@ -137,7 +137,7 @@ Pager* pager_open(const char* filename) {
 	pager->file_descriptor = fd;
 	pager->file_length = file_length;
 
-	for (uint32_T i = 0; i < TABLE_MAX_PAGES; i++) {
+	for (uint32_t i = 0; i < TABLE_MAX_PAGES; i++) {
 		pager->pages[i] = NULL;
 	}
 
@@ -162,13 +162,6 @@ Table* db_open(const char* filename) {
 	table->num_rows = num_rows;
 
 	return table;
-}
-
-void free_table(Table* table) {
-	for (int i = 0; i < table->pages[i]; i++) {
-		free(table->pages[i]);
-	}
-	free(table);
 }
 
 InputBuffer* new_input_buffer() {
@@ -203,7 +196,7 @@ void pager_flush(Pager* pager, uint32_t page_num, uint32_t size) {
 
 void db_close(Table* table) {
 	Pager* pager = table->pager;
-	uint32_T num_full_pages = table->num_rows / ROWS_OER_PAGE;
+	uint32_t num_full_pages = table->num_rows / ROWS_PER_PAGE;
 
 	for (uint32_t i = 0; i < num_full_pages; i++) {
 		if (pager->pages[i] == NULL) {
@@ -217,9 +210,9 @@ void db_close(Table* table) {
 	uint32_t num_additional_rows = table->num_rows % ROWS_PER_PAGE;
 	if (num_additional_rows > 0) {
 		if (pager->pages[page_num] != NULL) {
-			pager_flush(pager, page_num, num_additiona_rows * ROW_SIZE);
+			pager_flush(pager, page_num, num_additional_rows * ROW_SIZE);
 			free(pager->pages[page_num]);
-			pager->pagers[page_num] = NULL;
+			pager->pages[page_num] = NULL;
 		}
 	}
 
@@ -347,11 +340,11 @@ ExecuteResult execute_statement(Statement* statement, Table* table) {
 
 int main(int argc, char* argv[]) {
 	if (argc < 2) {
-		pritnf("Must supply a database filename.\n");
+		printf("Must supply a database filename.\n");
 		exit(EXIT_FAILURE);
 	}
 
-	char* filename = argv[];
+	char* filename = argv[1];
 	Table* table = db_open(filename);
 
 	InputBuffer* input_buffer = new_input_buffer();

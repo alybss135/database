@@ -1,2 +1,2 @@
 simpleREFL: simpleREFL.c
-	$(CC) simpleREFL.c -o simpleREFL -Wall -Wextra -pedantic -std=c99
+	$(CC) simpleREFL.c -o simpleREFL -Wall -Wextra -pedantic -std=gnu99
